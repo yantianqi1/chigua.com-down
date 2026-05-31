@@ -1,0 +1,10 @@
+services:
+  chigua-downloader:
+    build: .
+    container_name: chigua-downloader
+    ports:
+      - "8000:8000"
+    volumes:
+      # Change the left side to your desired download directory on the host
+      - ./downloads:/downloads
+    restart: unless-stopped

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chigua Video Downloader</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>🎬 51吃瓜视频下载</h1>
+  <span class="subtitle">粘贴文章地址，一行一个</span>
+</header>
+
+<main>
+  <!-- input panel -->
+  <section class="input-panel">
+    <div class="row">
+      <label>文章地址（每行一个）</label>
+      <textarea id="urls" rows="5" placeholder="https://chigua.com/archives/xxxxxx/&#10;https://chigua.com/archives/yyyyyy/"></textarea>
+    </div>
+    <div class="row">
+      <label>下载目录</label>
+      <input id="downloadDir" type="text" value="/downloads" placeholder="/downloads">
+    </div>
+    <button id="submitBtn" onclick="submitTasks()">⬇️ 开始下载</button>
+  </section>
+
+  <!-- status bar -->
+  <div class="status-bar">
+    <span id="taskCount">暂无任务</span>
+    <button class="clear-btn" onclick="clearCompleted()">清除已完成</button>
+  </div>
+
+  <!-- task list -->
+  <section id="taskList" class="task-list"></section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
