@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 let pollingTimer = null;
+const PROXY_STORAGE_KEY = "chigua.proxyUrl";
 
 // ---------------------------------------------------------------------------
 // Submit tasks
@@ -17,6 +18,7 @@ async function submitTasks() {
   btn.textContent = "⏳ 提交中...";
 
   try {
+    await saveProxySettings({ silent: true });
     const resp = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -27,14 +29,95 @@ async function submitTasks() {
       alert("提交失败: " + (err.detail || resp.statusText));
       return;
     }
+    const tasks = await resp.json();
     document.getElementById("urls").value = "";
+    const inputCount = urls.split("\n").filter(l => l.trim()).length;
+    if (tasks.length > inputCount) {
+      setSubmitFeedback(`发现 ${tasks.length} 个视频，已全部添加`);
+    } else {
+      setSubmitFeedback(`已添加 ${tasks.length} 个任务`);
+    }
     startPolling();
   } catch (e) {
-    alert("网络错误: " + e.message);
+    alert(formatSubmitError(e));
   } finally {
     btn.disabled = false;
     btn.textContent = "⬇️ 开始下载";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Proxy settings
+// ---------------------------------------------------------------------------
+async function loadProxySettings() {
+  const input = document.getElementById("proxyUrl");
+  const cached = localStorage.getItem(PROXY_STORAGE_KEY) || "";
+  input.value = cached;
+
+  const resp = await fetch("/api/settings/proxy");
+  if (!resp.ok) throw new Error(await readError(resp));
+
+  const data = await resp.json();
+  input.value = data.proxy_url || "";
+  localStorage.setItem(PROXY_STORAGE_KEY, input.value);
+}
+
+async function saveProxySettings(options = {}) {
+  try {
+    const input = document.getElementById("proxyUrl");
+    const proxyUrl = input.value.trim();
+    const resp = await fetch("/api/settings/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proxy_url: proxyUrl }),
+    });
+
+    if (!resp.ok) throw new Error("代理保存失败: " + (await readError(resp)));
+
+    const data = await resp.json();
+    input.value = data.proxy_url || "";
+    localStorage.setItem(PROXY_STORAGE_KEY, input.value);
+    if (!options.silent) setProxyStatus(input.value ? "代理已保存" : "代理已清空");
+  } catch (e) {
+    if (!options.silent) {
+      setProxyStatus(e.message);
+      return;
+    }
+    throw e;
+  }
+}
+
+function bindProxyInput() {
+  document.getElementById("proxyUrl").addEventListener("input", e => {
+    localStorage.setItem(PROXY_STORAGE_KEY, e.target.value.trim());
+    setProxyStatus("");
+  });
+}
+
+function setProxyStatus(message) {
+  document.getElementById("proxyStatus").textContent = message;
+}
+
+function setSubmitFeedback(message) {
+  const el = document.getElementById("submitFeedback");
+  el.textContent = message;
+  el.style.display = message ? "" : "none";
+  if (message) setTimeout(() => { el.textContent = ""; el.style.display = "none"; }, 4000);
+}
+
+async function readError(resp) {
+  try {
+    const err = await resp.json();
+    return err.detail || resp.statusText;
+  } catch {
+    return resp.statusText;
+  }
+}
+
+function formatSubmitError(error) {
+  const message = error.message || String(error);
+  if (message.startsWith("代理保存失败")) return message;
+  return "网络错误: " + message;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,5 +259,7 @@ function esc(s) {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+bindProxyInput();
+loadProxySettings().catch(e => setProxyStatus("代理加载失败: " + e.message));
 refresh();
 startPolling();

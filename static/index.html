@@ -24,7 +24,16 @@
       <label>下载目录</label>
       <input id="downloadDir" type="text" value="/downloads" placeholder="/downloads">
     </div>
+    <div class="row">
+      <label>代理地址</label>
+      <div class="proxy-control">
+        <input id="proxyUrl" type="text" autocomplete="off" placeholder="http://用户名:密码@服务器IP:端口 或 socks5://用户名:密码@服务器IP:端口">
+        <button class="secondary-btn" onclick="saveProxySettings()">保存代理</button>
+      </div>
+      <div id="proxyStatus" class="inline-status"></div>
+    </div>
     <button id="submitBtn" onclick="submitTasks()">⬇️ 开始下载</button>
+    <div id="submitFeedback" class="inline-status" style="display:none"></div>
   </section>
 
   <!-- status bar -->

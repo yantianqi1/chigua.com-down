@@ -88,6 +88,33 @@ textarea:focus, input[type="text"]:focus { border-color: var(--accent); }
 #submitBtn:hover { background: var(--accent-hi); }
 #submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.proxy-control {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.proxy-control input { flex: 1; min-width: 0; }
+
+.secondary-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 13px;
+  padding: 0 14px;
+}
+
+.secondary-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+
+.inline-status {
+  color: var(--text-dim);
+  font-size: 12px;
+  min-height: 18px;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Status bar                                                          */
 /* ------------------------------------------------------------------ */
@@ -226,4 +253,9 @@ textarea:focus, input[type="text"]:focus { border-color: var(--accent); }
   padding: 48px 20px;
   color: var(--text-dim);
   font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .proxy-control { flex-direction: column; }
+  .secondary-btn { min-height: 40px; }
 }

@@ -15,8 +15,22 @@ Open http://localhost:8000
 1. Open the web panel
 2. Paste article URLs (one per line)
 3. Set download directory (default: `/downloads` inside container)
-4. Click "开始下载"
-5. Monitor progress in real-time
+4. Set proxy address if chigua.com is blocked from your NAS network
+5. Click "开始下载"
+6. Monitor progress in real-time
+
+## Proxy
+
+The web panel can save a proxy address and reuse it for new tasks. The setting is persisted at `/downloads/settings.json`, so the default Docker volume keeps it on the host.
+
+Supported formats:
+
+```text
+http://用户名:密码@服务器IP:HTTP端口
+socks5://用户名:密码@服务器IP:SOCKS5端口
+```
+
+Empty proxy value clears the setting.
 
 ## Change Download Directory
 

@@ -13,6 +13,9 @@ from typing import Optional
 
 import httpx
 
+from ffmpeg_runner import build_ffmpeg_args, run_ffmpeg
+from settings import ProxySettingsError, normalize_proxy_url
+
 
 # ---------------------------------------------------------------------------
 # Models
@@ -32,6 +35,9 @@ class TaskInfo:
     current_time: str = ""
     error: str = ""
     download_dir: str = "/downloads"
+    proxy_url: str = ""
+    video_url: str = ""  # pre-resolved m3u8 URL (bypasses page fetch)
+    video_title: str = ""  # pre-resolved title
     _cancel: bool = field(default=False, repr=False)
 
 
@@ -43,8 +49,15 @@ class TaskManager:
     def __init__(self):
         self._tasks: dict[str, TaskInfo] = {}
 
-    def create(self, url: str, download_dir: str) -> TaskInfo:
-        t = TaskInfo(id=uuid.uuid4().hex[:8], url=url, download_dir=download_dir)
+    def create(self, url: str, download_dir: str, proxy_url: str = "", video_url: str = "", video_title: str = "") -> TaskInfo:
+        t = TaskInfo(
+            id=uuid.uuid4().hex[:8],
+            url=url,
+            download_dir=download_dir,
+            proxy_url=proxy_url,
+            video_url=video_url,
+            video_title=video_title,
+        )
         self._tasks[t.id] = t
         return t
 
@@ -68,71 +81,62 @@ task_manager = TaskManager()
 # HTML parsing
 # ---------------------------------------------------------------------------
 
-def parse_page(html: str) -> Optional[dict]:
-    """Extract video m3u8 URL and title from chigua.com page HTML."""
+def parse_page(html: str) -> list[dict]:
+    """Extract all video m3u8 URLs and titles from a chigua.com page."""
 
-    def _extract(cfg_str: str) -> Optional[dict]:
-        cfg_str = html_mod.unescape(cfg_str)
-        try:
-            config = json.loads(cfg_str)
-            url = config["video"]["url"]
-        except (KeyError, json.JSONDecodeError):
-            return None
+    results: list[dict] = []
+    page_title = _extract_page_title(html)
 
-        # title: prefer data-video_title, then <h1>, then <title>
-        title = "video"
-        tm = re.search(r'data-video_title="([^"]*)"', html)
+    # Collect every <div that carries a data-config attribute, then pull both the
+    # video URL and (when present) the data-video_title from the same element.
+    for div_match in re.finditer(r"<div\s[^>]*data-config=([^>]*)>", html):
+        div_html = div_match.group()
+
+        # --- video URL (single- or double-quoted) --------------------------
+        url: str = ""
+        for pattern in (r"data-config='([^']*)'", r'data-config="([^"]*)"'):
+            cm = re.search(pattern, div_html)
+            if cm:
+                try:
+                    cfg = json.loads(html_mod.unescape(cm.group(1)))
+                    url = cfg["video"]["url"]
+                except (KeyError, json.JSONDecodeError):
+                    pass
+                break
+
+        if not url:
+            continue
+
+        # --- title ----------------------------------------------------------
+        title = ""
+        tm = re.search(r'data-video_title="([^"]*)"', div_html)
         if tm:
-            title = html_mod.unescape(tm.group(1))
-        else:
-            hm = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.DOTALL)
-            if hm:
-                title = re.sub(r"<[^>]+>", "", html_mod.unescape(hm.group(1))).strip()
-            else:
-                ttm = re.search(r"<title>(.*?)</title>", html, re.DOTALL)
-                if ttm:
-                    title = re.sub(r"<[^>]+>", "", html_mod.unescape(ttm.group(1))).strip()
-                    title = title.split("|")[0].strip()
-        return {"url": url, "title": title}
+            title = html_mod.unescape(tm.group(1)).strip()
+        if not title:
+            title = page_title
 
-    # Try single-quoted data-config (most common)
-    for cfg in re.findall(r"data-config='([^']*)'", html):
-        result = _extract(cfg)
-        if result:
-            return result
+        results.append({"url": url, "title": title})
 
-    # Try double-quoted data-config
-    for cfg in re.findall(r'data-config="([^"]*)"', html):
-        result = _extract(cfg)
-        if result:
-            return result
+    return results
 
-    return None
+
+def _extract_page_title(html: str) -> str:
+    """Best-effort page title from <h1> or <title>."""
+    hm = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.DOTALL)
+    if hm:
+        return re.sub(r"<[^>]+>", "", html_mod.unescape(hm.group(1))).strip()
+
+    ttm = re.search(r"<title>(.*?)</title>", html, re.DOTALL)
+    if ttm:
+        title = re.sub(r"<[^>]+>", "", html_mod.unescape(ttm.group(1))).strip()
+        return title.split("|")[0].strip()
+
+    return "video"
 
 
 def safe_filename(name: str) -> str:
     s = re.sub(r'[\\/*?:"<>|]', "", name).strip()
     return s[:80]
-
-
-# ---------------------------------------------------------------------------
-# Format helpers
-# ---------------------------------------------------------------------------
-
-def _fmt_time(seconds: float) -> str:
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    return f"{h:02d}:{m:02d}:{s:02d}"
-
-
-def _fmt_size(size_bytes: float) -> str:
-    if size_bytes < 1024 * 1024:
-        return f"{size_bytes / 1024:.0f}KB"
-    elif size_bytes < 1024 * 1024 * 1024:
-        return f"{size_bytes / (1024 * 1024):.0f}MB"
-    else:
-        return f"{size_bytes / (1024 * 1024 * 1024):.1f}GB"
 
 
 # ---------------------------------------------------------------------------
@@ -143,40 +147,35 @@ async def run_download(task: TaskInfo):
     try:
         task.status = "parsing"
 
-        # -- 1. Fetch page HTML ------------------------------------------------
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            resp = await client.get(
-                task.url,
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/131.0.0.0 Safari/537.36"
-                    )
-                },
-            )
-            resp.raise_for_status()
-            html = resp.text
+        if task.video_url:
+            # Pre-resolved by the endpoint — skip page fetch
+            video_url = task.video_url
+            title = task.video_title or task.title or "video"
+        else:
+            # Fallback: fetch page and take the first video
+            html = await _fetch_page_html(task.url, task.proxy_url)
+            videos = parse_page(html)
+            if not videos:
+                task.status = "failed"
+                task.error = "未找到视频地址，请确认页面包含 DPlayer 播放器"
+                return
+            video_url = videos[0]["url"]
+            title = videos[0]["title"]
 
-        # -- 2. Parse video info -----------------------------------------------
-        info = parse_page(html)
-        if not info:
-            task.status = "failed"
-            task.error = "未找到视频地址，请确认页面包含 DPlayer 播放器"
-            return
-
-        task.title = info["title"]
-        task.filename = safe_filename(info["title"]) + ".mp4"
+        task.title = title
+        task.filename = safe_filename(title) + ".mp4"
         filepath = Path(task.download_dir) / task.filename
 
-        # -- 3. Run ffmpeg -----------------------------------------------------
         task.status = "downloading"
-        await _run_ffmpeg(info["url"], filepath, task)
+        await run_ffmpeg(video_url, filepath, task)
 
         if task.status != "failed":
             task.status = "completed"
             task.progress = 100.0
 
+    except ProxySettingsError as e:
+        task.status = "failed"
+        task.error = f"代理配置错误: {e}"
     except httpx.HTTPStatusError as e:
         task.status = "failed"
         task.error = f"HTTP {e.response.status_code}"
@@ -189,73 +188,21 @@ async def run_download(task: TaskInfo):
         raise
 
 
-# ---------------------------------------------------------------------------
-# ffmpeg subprocess with real-time progress parsing
-# ---------------------------------------------------------------------------
+async def _fetch_page_html(url: str, proxy_url: str) -> str:
+    proxy = normalize_proxy_url(proxy_url) or None
+    async with httpx.AsyncClient(
+        timeout=30,
+        follow_redirects=True,
+        proxy=proxy,
+    ) as client:
+        resp = await client.get(url, headers={"User-Agent": _user_agent()})
+        resp.raise_for_status()
+        return resp.text
 
-async def _run_ffmpeg(url: str, filepath: Path, task: TaskInfo):
-    proc = await asyncio.create_subprocess_exec(
-        "ffmpeg",
-        "-i", url,
-        "-c", "copy",
-        "-bsf:a", "aac_adtstoasc",
-        str(filepath),
-        "-y",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+
+def _user_agent() -> str:
+    return (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
     )
-
-    duration_secs: float = 0.0
-    buf = ""
-
-    while True:
-        chunk = await proc.stderr.read(4096)
-        if not chunk:
-            break
-        buf += chunk.decode(errors="replace")
-
-        # Split on \r or \n – ffmpeg uses \r on terminals, \n in pipes
-        *lines, buf = re.split(r"[\r\n]+", buf)
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Duration header
-            m = re.search(r"Duration:\s*(\d+):(\d+):(\d+)\.(\d+)", line)
-            if m:
-                h, mi, s, ms = int(m[1]), int(m[2]), int(m[3]), int(m[4])
-                duration_secs = h * 3600 + mi * 60 + s + ms / 100
-                task.duration = f"{h:02d}:{mi:02d}:{s:02d}"
-                continue
-
-            # Progress line  e.g.  time=00:12:34.56
-            m = re.search(r"time=(\d+):(\d+):(\d+)\.(\d+)", line)
-            if m and duration_secs > 0:
-                h, mi, s, ms = int(m[1]), int(m[2]), int(m[3]), int(m[4])
-                cur = h * 3600 + mi * 60 + s + ms / 100
-                task.current_time = _fmt_time(cur)
-                task.progress = min(99.9, (cur / duration_secs) * 100)
-
-            # Speed
-            m = re.search(r"speed=\s*(\S+)", line)
-            if m:
-                task.speed = m.group(1)
-
-            # Output size
-            m = re.search(r"size=\s*(\S+)", line)
-            if m:
-                task.size = m.group(1)
-
-        # Handle cancellation
-        if task._cancel:
-            proc.terminate()
-            task.status = "failed"
-            task.error = "用户取消"
-            return
-
-    await proc.wait()
-
-    if proc.returncode != 0 and task.status != "failed":
-        task.status = "failed"
-        task.error = f"ffmpeg 退出码 {proc.returncode}"
