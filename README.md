@@ -8,7 +8,7 @@ Web panel to download videos from [51吃瓜网 (chigua.com)](https://chigua.com)
 docker compose up -d
 ```
 
-Open http://localhost:8000
+Open http://localhost:8006
 
 ## Usage
 
@@ -46,7 +46,7 @@ volumes:
 ```bash
 pip install -r requirements.txt
 # ffmpeg must be installed on your system
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port 8006
 ```
 
 ## API

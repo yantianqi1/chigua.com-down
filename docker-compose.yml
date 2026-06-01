@@ -5,9 +5,9 @@ services:
     # build: .
     container_name: chigua-downloader
     network_mode: host
-    # 端口默认 8000，修改方式：取消下面注释并改值
-    # environment:
-    #   - PORT=8000
+    # host 网络模式下，应用直接监听 NAS 宿主机端口
+    environment:
+      - PORT=8006
     volumes:
       # Change the left side to your desired download directory on the host
       - ./downloads:/downloads
