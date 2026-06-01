@@ -3,12 +3,15 @@ ffmpeg invocation and progress parsing.
 """
 
 import asyncio
+import logging
 import re
 from pathlib import Path
 from typing import Protocol
 
 from settings import is_socks_proxy, normalize_proxy_url
 from socks_bridge import SocksHttpProxyBridge
+
+logger = logging.getLogger("ffmpeg")
 
 
 class FfmpegTask(Protocol):
@@ -26,7 +29,9 @@ class FfmpegTask(Protocol):
 async def run_ffmpeg(url: str, filepath: Path, task: FfmpegTask):
     proxy_url = normalize_proxy_url(task.proxy_url)
     if is_socks_proxy(proxy_url):
+        logger.info("启动 SOCKS5 桥接 -> %s", proxy_url)
         async with SocksHttpProxyBridge(proxy_url) as bridge:
+            logger.info("SOCKS5 桥接已启动: %s", bridge.proxy_url)
             await _run_ffmpeg_process(url, filepath, task, bridge.proxy_url)
         return
 
@@ -55,8 +60,10 @@ async def _run_ffmpeg_process(
     task: FfmpegTask,
     proxy_url: str,
 ):
+    args = build_ffmpeg_args(url, filepath, proxy_url)
+    logger.info("ffmpeg 进程启动: %s", " ".join(args))
     proc = await asyncio.create_subprocess_exec(
-        *build_ffmpeg_args(url, filepath, proxy_url),
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -66,6 +73,7 @@ async def _run_ffmpeg_process(
     if proc.returncode != 0 and task.status != "failed":
         task.status = "failed"
         task.error = f"ffmpeg 退出码 {proc.returncode}"
+        logger.error("ffmpeg 退出码 %d: %s", proc.returncode, task.error)
 
 
 async def _read_ffmpeg_progress(proc: asyncio.subprocess.Process, task: FfmpegTask):

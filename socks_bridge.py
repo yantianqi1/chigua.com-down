@@ -4,6 +4,7 @@ Local HTTP CONNECT proxy that forwards traffic through an upstream SOCKS5 proxy.
 
 import asyncio
 import contextlib
+import logging
 from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
 
@@ -14,6 +15,8 @@ from socks_protocol import (
     open_socks_connection,
     parse_socks_proxy,
 )
+
+logger = logging.getLogger("socks_bridge")
 
 BUFFER_SIZE = 65536
 MAX_HEADER_BYTES = 65536
@@ -40,6 +43,7 @@ class SocksHttpProxyBridge:
             "127.0.0.1",
             0,
         )
+        logger.info("SOCKS 桥接启动: 上游=%s:%d", self._upstream.host, self._upstream.port)
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -63,6 +67,8 @@ class SocksHttpProxyBridge:
 
         try:
             await self._proxy_client(client_reader, client_writer)
+        except Exception:
+            logger.exception("桥接客户端处理异常")
         finally:
             if task:
                 self._tasks.discard(task)
@@ -74,6 +80,7 @@ class SocksHttpProxyBridge:
         client_writer: asyncio.StreamWriter,
     ):
         request = await _read_http_request(client_reader)
+        logger.info("桥接 %s %s:%d", request.method, request.host, request.port)
         remote_reader, remote_writer = await open_socks_connection(
             self._upstream,
             request.host,
@@ -89,6 +96,9 @@ class SocksHttpProxyBridge:
                 remote_writer.write(initial_bytes)
                 await remote_writer.drain()
             await _relay(client_reader, client_writer, remote_reader, remote_writer)
+        except Exception:
+            logger.exception("桥接传输异常 %s:%d", request.host, request.port)
+            raise
         finally:
             await close_writer(remote_writer)
 

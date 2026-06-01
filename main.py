@@ -3,11 +3,21 @@ FastAPI application — chigua.com video downloader.
 """
 
 import asyncio
+import logging
+import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-5s %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+logger = logging.getLogger("main")
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -28,6 +38,19 @@ app.add_middleware(
 )
 
 settings_store = SettingsStore()
+
+
+def _run_in_background(coro):
+    """Create a background task that logs unhandled exceptions."""
+
+    async def _wrapper():
+        try:
+            await coro
+        except Exception:
+            logger.error("后台任务异常:\n%s", traceback.format_exc())
+
+    asyncio.create_task(_wrapper())
+
 
 # ---------------------------------------------------------------------------
 # Models
@@ -127,7 +150,7 @@ async def create_tasks(req: DownloadRequest):
                 t.title = info["title"]
                 t.filename = safe_filename(info["title"]) + ".mp4"
                 tasks.append(TaskOut.from_task(t))
-                asyncio.create_task(run_download(t))
+                _run_in_background(run_download(t))
 
     return tasks
 

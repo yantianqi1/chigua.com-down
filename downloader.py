@@ -4,8 +4,10 @@ Download engine: parses chigua.com pages and downloads videos via ffmpeg.
 
 import asyncio
 import json
+import logging
 import re
 import html as html_mod
+import traceback
 import uuid
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -15,6 +17,8 @@ import httpx
 
 from ffmpeg_runner import build_ffmpeg_args, run_ffmpeg
 from settings import ProxySettingsError, normalize_proxy_url
+
+logger = logging.getLogger("downloader")
 
 
 # ---------------------------------------------------------------------------
@@ -167,25 +171,30 @@ async def run_download(task: TaskInfo):
         filepath = Path(task.download_dir) / task.filename
 
         task.status = "downloading"
+        logger.info("开始下载: %s -> %s", task.filename, filepath)
         await run_ffmpeg(video_url, filepath, task)
 
         if task.status != "failed":
             task.status = "completed"
             task.progress = 100.0
+            logger.info("下载完成: %s", task.filename)
 
     except ProxySettingsError as e:
         task.status = "failed"
         task.error = f"代理配置错误: {e}"
+        logger.error("代理错误 [%s]: %s", task.id, e)
     except httpx.HTTPStatusError as e:
         task.status = "failed"
         task.error = f"HTTP {e.response.status_code}"
+        logger.error("HTTP错误 [%s]: %s", task.id, e)
     except httpx.RequestError as e:
         task.status = "failed"
         task.error = f"网络请求失败: {e}"
-    except Exception:
+        logger.error("网络错误 [%s]: %s", task.id, e)
+    except Exception as e:
         task.status = "failed"
-        task.error = f"未知错误"
-        raise
+        task.error = f"{type(e).__name__}: {e}"
+        logger.error("下载异常 [%s]: %s\n%s", task.id, e, traceback.format_exc())
 
 
 async def _fetch_page_html(url: str, proxy_url: str) -> str:
