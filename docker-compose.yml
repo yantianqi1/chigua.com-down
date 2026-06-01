@@ -8,6 +8,8 @@ services:
     # host 网络模式下，应用直接监听 NAS 宿主机端口
     environment:
       - PORT=8006
+      # host 网络模式下，127.0.0.1 指向 NAS 宿主机
+      - CHIGUA_PROXY_URL=http://127.0.0.1:7890
     volumes:
       # Change the left side to your desired download directory on the host
       - ./downloads:/downloads

@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 SUPPORTED_PROXY_SCHEMES = frozenset(("http", "https", "socks5", "socks5h"))
 DEFAULT_SETTINGS_PATH = Path(os.getenv("CHIGUA_SETTINGS_PATH", "/downloads/settings.json"))
+DEFAULT_PROXY_ENV = "CHIGUA_PROXY_URL"
 
 
 class ProxySettingsError(ValueError):
@@ -49,13 +50,17 @@ def is_socks_proxy(proxy_url: str) -> bool:
     return urlsplit(normalize_proxy_url(proxy_url)).scheme in ("socks5", "socks5h")
 
 
+def load_default_proxy_url() -> str:
+    return normalize_proxy_url(os.getenv(DEFAULT_PROXY_ENV, ""))
+
+
 class SettingsStore:
     def __init__(self, path: Path = DEFAULT_SETTINGS_PATH):
         self._path = path
 
     def load(self) -> AppSettings:
         if not self._path.exists():
-            return AppSettings()
+            return AppSettings(proxy_url=load_default_proxy_url())
 
         data = json.loads(self._path.read_text(encoding="utf-8"))
         proxy_url = normalize_proxy_url(str(data.get("proxy_url", "")))

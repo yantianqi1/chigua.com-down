@@ -23,6 +23,16 @@ Open http://localhost:8006
 
 The web panel can save a proxy address and reuse it for new tasks. The setting is persisted at `/downloads/settings.json`, so the default Docker volume keeps it on the host.
 
+Docker Compose can also provide the initial proxy value:
+
+```yaml
+environment:
+  - PORT=8006
+  - CHIGUA_PROXY_URL=http://127.0.0.1:7890
+```
+
+With `network_mode: host`, `127.0.0.1` points to the NAS host, so this works for a local Clash HTTP/mixed port on the NAS. If `/downloads/settings.json` already exists, the saved web-panel setting overrides `CHIGUA_PROXY_URL`.
+
 Supported formats:
 
 ```text

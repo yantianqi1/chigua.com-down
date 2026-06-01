@@ -1,7 +1,9 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from settings import ProxySettingsError, SettingsStore, normalize_proxy_url
 
@@ -49,6 +51,28 @@ class ProxySettingsTest(unittest.TestCase):
             self.assertEqual(store.load().proxy_url, saved.proxy_url)
             payload = json.loads(settings_path.read_text(encoding="utf-8"))
             self.assertEqual(payload, {"proxy_url": saved.proxy_url})
+
+    def test_settings_store_uses_env_proxy_when_file_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir, patch.dict(
+            os.environ,
+            {"CHIGUA_PROXY_URL": " http://127.0.0.1:7890 "},
+        ):
+            settings_path = Path(tmp_dir) / "settings.json"
+            store = SettingsStore(settings_path)
+
+            self.assertEqual(store.load().proxy_url, "http://127.0.0.1:7890")
+
+    def test_settings_file_overrides_env_proxy(self):
+        with tempfile.TemporaryDirectory() as tmp_dir, patch.dict(
+            os.environ,
+            {"CHIGUA_PROXY_URL": "http://127.0.0.1:7890"},
+        ):
+            settings_path = Path(tmp_dir) / "settings.json"
+            store = SettingsStore(settings_path)
+
+            saved = store.save_proxy("http://10.0.0.2:8080")
+
+            self.assertEqual(store.load().proxy_url, saved.proxy_url)
 
 
 if __name__ == "__main__":
