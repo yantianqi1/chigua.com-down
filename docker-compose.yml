@@ -4,8 +4,7 @@ services:
     # Uncomment the next line (and comment "image") to build locally instead:
     # build: .
     container_name: chigua-downloader
-    ports:
-      - "8000:8000"
+    network_mode: host
     volumes:
       # Change the left side to your desired download directory on the host
       - ./downloads:/downloads
