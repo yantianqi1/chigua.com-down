@@ -129,8 +129,8 @@ async def create_tasks(req: DownloadRequest):
         try:
             html = await _fetch_page_html(url, proxy_url)
             videos = parse_page(html)
-        except Exception:
-            pass  # fall through — run_download will retry
+        except Exception as e:
+            logger.warning("端点预解析页面失败 [%s]: %s", url, type(e).__name__)
 
         if not videos:
             # No videos found or fetch failed — create one task; run_download

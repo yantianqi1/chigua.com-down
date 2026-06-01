@@ -189,8 +189,9 @@ async def run_download(task: TaskInfo):
         logger.error("HTTP错误 [%s]: %s", task.id, e)
     except httpx.RequestError as e:
         task.status = "failed"
-        task.error = f"网络请求失败: {e}"
-        logger.error("网络错误 [%s]: %s", task.id, e)
+        detail = f"{type(e).__name__}: {e}" if str(e) else repr(e)
+        task.error = f"网络请求失败: {detail}"
+        logger.error("网络错误 [%s] type=%s: %s", task.id, type(e).__name__, e)
     except Exception as e:
         task.status = "failed"
         task.error = f"{type(e).__name__}: {e}"
@@ -199,6 +200,10 @@ async def run_download(task: TaskInfo):
 
 async def _fetch_page_html(url: str, proxy_url: str) -> str:
     proxy = normalize_proxy_url(proxy_url) or None
+    if proxy:
+        logger.info("页面抓取 via 代理 %s: %s", proxy, url)
+    else:
+        logger.info("页面抓取 直连: %s", url)
     async with httpx.AsyncClient(
         timeout=30,
         follow_redirects=True,
