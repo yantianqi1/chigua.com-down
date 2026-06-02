@@ -1,261 +1,284 @@
-/* ------------------------------------------------------------------ */
-/*  Reset & base                                                        */
-/* ------------------------------------------------------------------ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0f1117;
-  --bg-card:   #1a1d27;
-  --bg-input:  #12141c;
-  --border:    #2a2d38;
-  --text:      #e4e6f0;
-  --text-dim:  #7b7f90;
-  --accent:    #6c8cff;
-  --accent-hi: #8ca4ff;
-  --green:     #34d399;
-  --red:       #f87171;
-  --yellow:    #fbbf24;
-  --radius:    10px;
+  --ink-charred: #1a1a1a;
+  --ink-heavy: #333333;
+  --ink-soft: #666666;
+  --ink-clear: #999999;
+  --paper: #F8F5F0;
+  --paper-warm: #FAF0E6;
+  --ivory: #FFFFF0;
+  --seal: #C41E3A;
+  --pine: #2E8B57;
+  --gold: #D4AF37;
+  --line: rgba(51, 51, 51, .18);
+  --line-dark: rgba(26, 26, 26, .32);
+  --wash: rgba(26, 26, 26, .06);
+  --shadow: 0 26px 70px rgba(51, 51, 51, .12);
+  --radius: 8px;
 }
+
+.font-calligraphy-草 { font-family: "Liu Jian Mao Cao", cursive; }
+.font-calligraphy-行 { font-family: "Ma Shan Zheng", cursive; }
+.font-calligraphy-行草 { font-family: "Zhi Mang Xing", cursive; }
+.font-body-楷 { font-family: "ZCOOL XiaoWei", serif; }
+.font-seal { font-family: "ZCOOL KuaiLe", cursive; }
+
+html { min-height: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
-  background: var(--bg);
-  color: var(--text);
   min-height: 100vh;
-  line-height: 1.5;
+  color: var(--ink-charred);
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  line-height: 1.72;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(212, 175, 55, .14), transparent 24rem),
+    radial-gradient(circle at 90% 4%, rgba(46, 139, 87, .10), transparent 22rem),
+    linear-gradient(115deg, var(--paper), var(--ivory) 46%, var(--paper-warm));
+  overflow-x: hidden;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Header                                                              */
-/* ------------------------------------------------------------------ */
-header {
-  text-align: center;
-  padding: 32px 20px 16px;
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .42;
+  background-image:
+    linear-gradient(90deg, rgba(51, 51, 51, .035) 1px, transparent 1px),
+    linear-gradient(rgba(51, 51, 51, .026) 1px, transparent 1px),
+    radial-gradient(circle at 35% 40%, rgba(26, 26, 26, .06) 0 1px, transparent 2px);
+  background-size: 42px 42px, 42px 42px, 16px 16px;
+  mix-blend-mode: multiply;
 }
-header h1 { font-size: 22px; font-weight: 700; }
-header .subtitle { color: var(--text-dim); font-size: 13px; }
 
-/* ------------------------------------------------------------------ */
-/*  Input panel                                                          */
-/* ------------------------------------------------------------------ */
+body::after {
+  content: "";
+  position: fixed;
+  right: -8rem;
+  bottom: -12rem;
+  width: 34rem;
+  height: 34rem;
+  pointer-events: none;
+  border-radius: 47% 53% 45% 55%;
+  background: radial-gradient(circle, rgba(26, 26, 26, .13), transparent 66%);
+  filter: blur(18px);
+  opacity: .48;
+}
+
+.ink-mountains {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 42vh;
+  pointer-events: none;
+  opacity: .78;
+  filter: blur(1.5px);
+  background:
+    radial-gradient(ellipse at 18% 88%, rgba(26, 26, 26, .22) 0 9rem, transparent 9.3rem),
+    radial-gradient(ellipse at 46% 96%, rgba(51, 51, 51, .16) 0 13rem, transparent 13.4rem),
+    radial-gradient(ellipse at 78% 90%, rgba(46, 139, 87, .12) 0 11rem, transparent 11.4rem),
+    linear-gradient(180deg, transparent 0%, rgba(153, 153, 153, .12) 62%, rgba(26, 26, 26, .12) 100%);
+  z-index: 0;
+}
+
+.vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.hero,
 main {
-  max-width: 800px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero {
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 0 16px 40px;
+  padding: 4.75rem 1.5rem 2.8rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 2rem;
+  align-items: end;
+}
+
+.hero-poem {
+  color: var(--ink-clear);
+  font-family: "Zhi Mang Xing", cursive;
+  font-size: 1.55rem;
+  min-height: 11rem;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.kicker {
+  color: var(--pine);
+  font-family: "Noto Serif SC", serif;
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+header h1 {
+  color: var(--ink-charred);
+  font-family: "Liu Jian Mao Cao", "Ma Shan Zheng", cursive;
+  font-size: 4.85rem;
+  font-weight: 400;
+  line-height: .95;
+}
+
+.subtitle {
+  color: var(--ink-soft);
+  font-family: "Ma Shan Zheng", cursive;
+  font-size: 1.65rem;
+}
+
+.brand-seal {
+  width: 4.25rem;
+  height: 4.25rem;
+  display: grid;
+  place-items: center;
+  color: var(--ivory);
+  background: var(--seal);
+  border: 2px solid rgba(196, 30, 58, .45);
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 240, .25), 0 12px 28px rgba(196, 30, 58, .22);
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 1.45rem;
+  line-height: 1.05;
+  transform: rotate(-5deg);
+}
+
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1.5rem 5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, .75fr);
+  grid-template-areas:
+    "input status"
+    "input tasks";
+  gap: 1.35rem 1.75rem;
+  align-items: start;
 }
 
 .input-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+  grid-area: input;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 1.35rem;
+  padding: 2rem;
+  overflow: hidden;
+  background: rgba(255, 255, 240, .68);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
 }
 
-.row { display: flex; flex-direction: column; gap: 6px; }
-.row label { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+.input-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: .34rem;
+  background: linear-gradient(180deg, var(--ink-heavy), transparent 62%, var(--seal));
+  opacity: .48;
+}
 
-textarea, input[type="text"] {
+.row { display: flex; flex-direction: column; gap: .55rem; }
+
+.row label {
+  color: var(--ink-heavy);
+  font-family: "Ma Shan Zheng", cursive;
+  font-size: 1.35rem;
+}
+
+textarea,
+input[type="text"] {
   width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 10px 12px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
+  color: var(--ink-charred);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 240, .88), rgba(248, 245, 240, .74)),
+    radial-gradient(circle at 92% 12%, rgba(212, 175, 55, .10), transparent 8rem);
+  border: 1px solid rgba(51, 51, 51, .22);
+  border-radius: 6px;
   outline: none;
-  transition: border-color .2s;
+  padding: .82rem 1rem;
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  font-size: 1rem;
+  resize: vertical;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
-textarea:focus, input[type="text"]:focus { border-color: var(--accent); }
+
+textarea { min-height: 12rem; }
+
+textarea:focus,
+input[type="text"]:focus {
+  border-color: var(--pine);
+  box-shadow: 0 0 0 3px rgba(46, 139, 87, .13), 0 12px 30px rgba(51, 51, 51, .08);
+}
+
+.proxy-control { display: flex; gap: .75rem; align-items: stretch; }
+.proxy-control input { flex: 1; min-width: 0; }
+
+button {
+  font-family: "Ma Shan Zheng", "ZCOOL XiaoWei", serif;
+  letter-spacing: 0;
+}
+
+#submitBtn,
+.secondary-btn,
+.clear-btn,
+.task-actions button {
+  min-height: 2.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, color .18s ease, background .18s ease;
+}
 
 #submitBtn {
   align-self: flex-start;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 28px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .2s;
-}
-#submitBtn:hover { background: var(--accent-hi); }
-#submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.proxy-control {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
+  min-width: 9.5rem;
+  color: var(--ivory);
+  background: var(--seal);
+  border: 1px solid rgba(196, 30, 58, .58);
+  padding: .55rem 1.5rem;
+  box-shadow: 0 12px 24px rgba(196, 30, 58, .20);
+  font-size: 1.35rem;
 }
 
-.proxy-control input { flex: 1; min-width: 0; }
-
-.secondary-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  cursor: pointer;
-  flex-shrink: 0;
-  font-size: 13px;
-  padding: 0 14px;
+#submitBtn:hover,
+.secondary-btn:hover,
+.clear-btn:hover,
+.task-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(51, 51, 51, .12);
 }
 
-.secondary-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+#submitBtn:disabled { opacity: .48; cursor: not-allowed; transform: none; }
+
+.secondary-btn,
+.clear-btn,
+.task-actions button {
+  color: var(--ink-heavy);
+  background: rgba(255, 255, 240, .5);
+  border: 1px solid var(--line-dark);
+  padding: 0 .95rem;
+  font-size: 1rem;
+}
+
+.secondary-btn:hover,
+.clear-btn:hover {
+  color: var(--seal);
+  border-color: rgba(196, 30, 58, .55);
+}
 
 .inline-status {
-  color: var(--text-dim);
-  font-size: 12px;
-  min-height: 18px;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Status bar                                                          */
-/* ------------------------------------------------------------------ */
-.status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 20px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-.clear-btn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 4px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-}
-.clear-btn:hover { color: var(--text); border-color: var(--text-dim); }
-
-/* ------------------------------------------------------------------ */
-/*  Task cards                                                          */
-/* ------------------------------------------------------------------ */
-.task-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
-
-.task-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  animation: fadeIn .3s ease;
-}
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
-.task-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.task-title {
-  font-size: 14px;
-  font-weight: 600;
-  flex: 1;
-  word-break: break-all;
-}
-
-.task-status {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 20px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.task-status.pending   { background: #334155; color: #94a3b8; }
-.task-status.parsing   { background: rgba(251,191,36,.15); color: var(--yellow); }
-.task-status.downloading { background: rgba(108,140,255,.15); color: var(--accent); }
-.task-status.completed { background: rgba(52,211,153,.15); color: var(--green); }
-.task-status.failed    { background: rgba(248,113,113,.15); color: var(--red); }
-
-/* Progress bar */
-.progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.progress-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--bg-input);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.progress-bar .fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width .3s linear;
-  min-width: 2px;
-}
-.progress-bar .fill.completed { background: var(--green); }
-.progress-bar .fill.failed    { background: var(--red); }
-.progress-pct {
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 40px;
-  text-align: right;
-  color: var(--text-dim);
-}
-
-/* Task meta */
-.task-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.task-meta span { white-space: nowrap; }
-
-.task-error {
-  font-size: 12px;
-  color: var(--red);
-  background: rgba(248,113,113,.08);
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.task-actions {
-  display: flex;
-  gap: 8px;
-}
-.task-actions button {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  font-size: 12px;
-  padding: 4px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.task-actions button:hover { border-color: var(--red); color: var(--red); }
-
-/* Empty state */
-.empty-state {
-  text-align: center;
-  padding: 48px 20px;
-  color: var(--text-dim);
-  font-size: 14px;
-}
-
-@media (max-width: 560px) {
-  .proxy-control { flex-direction: column; }
-  .secondary-btn { min-height: 40px; }
+  min-height: 1.25rem;
+  color: var(--ink-soft);
+  font-size: .86rem;
 }
