@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>51吃瓜网 · 影存 — 热门吃瓜爆料视频</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Liu+Jian+Mao+Cao&family=Ma+Shan+Zheng&family=Zhi+Mang+Xing&family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=Noto+Serif+SC:wght@300;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
+<link rel="stylesheet" href="/static/browse.css">
+</head>
+<body>
+
+<div class="ink-mountains" aria-hidden="true"></div>
+
+<!-- ====== Navbar ====== -->
+<nav class="site-nav" id="siteNav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand" data-link="/">
+      <span class="brand-icon">🍉</span>
+      <span class="brand-text">51吃瓜·影存</span>
+    </a>
+
+    <div class="nav-categories" id="navCategories">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="nav-actions">
+      <button class="nav-btn" id="searchToggle" title="搜索">🔍</button>
+      <a href="/download" class="nav-btn download-nav" title="下载管理">
+        📥
+        <span class="download-badge" id="downloadBadge" style="display:none">0</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Search bar -->
+  <div class="search-bar" id="searchBar" style="display:none">
+    <input type="text" id="searchInput" placeholder="搜索吃瓜内容…" autocomplete="off">
+    <button id="searchSubmit">搜索</button>
+    <button id="searchClose" class="secondary-btn">✕</button>
+  </div>
+</nav>
+
+<!-- ====== Main content ====== -->
+<main id="appMain">
+  <!-- Default: waterfall feed -->
+  <div id="viewFeed" class="view">
+    <div class="feed-header">
+      <h2 id="feedTitle">🔥 最新吃瓜</h2>
+      <span id="feedSubtitle" class="feed-subtitle"></span>
+    </div>
+    <div class="masonry" id="masonryGrid"></div>
+    <div class="load-more-wrap" id="loadMoreWrap">
+      <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">加载更多</button>
+    </div>
+    <div class="loading-indicator" id="feedLoading" style="display:none">
+      <span class="spinner"></span> 加载中…
+    </div>
+  </div>
+
+  <!-- Article detail -->
+  <div id="viewDetail" class="view" style="display:none">
+    <button class="back-btn" onclick="goBack()">← 返回列表</button>
+    <article id="detailContent"></article>
+  </div>
+
+  <!-- Search results -->
+  <div id="viewSearch" class="view" style="display:none">
+    <button class="back-btn" onclick="goBack()">← 返回列表</button>
+    <div class="feed-header">
+      <h2 id="searchTitle">搜索结果</h2>
+    </div>
+    <div class="masonry" id="searchGrid"></div>
+  </div>
+</main>
+
+<!-- ====== Toast ====== -->
+<div class="toast" id="toast"></div>
+
+<!-- DPlayer -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+<script src="/static/browse.js"></script>
+</body>
+</html>

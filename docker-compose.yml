@@ -1,4 +1,4 @@
-services:
+ services:
   chigua-downloader:
     image: ghcr.io/yantianqi1/chigua.com-down:main
     # Uncomment the next line (and comment "image") to build locally instead:
