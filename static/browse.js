@@ -186,11 +186,7 @@ async function loadMore() {
     if (state.currentCategory) {
       url = `/api/site/category/${state.currentCategory}?page=${nextPage}`;
     } else {
-      // Fallback: scrape category page for pagination
-      url = `/api/site/category/wpcz?page=${nextPage}`; // won't be used for feed
-      // Actually for homepage we use RSS which doesn't paginate well
-      // Instead try scraping a popular category
-      url = `/api/site/category/rdsj?page=${nextPage}`;
+      url = `/api/site/feed?page=${nextPage}`;
     }
     const data = await fetchJSON(url);
     state.feedPage = nextPage;
@@ -259,7 +255,7 @@ function renderDetail(container, data) {
         <h3>🔥 相关推荐</h3>
         ${data.related.slice(0, 5).map(r => `
           <div class="video-list-item" onclick="navigate('${r.url}')">
-            <img class="thumb" src="${r.thumbnail ? `/api/site/image-proxy?url=${encodeURIComponent(r.thumbnail)}` : ''}" alt="" loading="lazy">
+            <img class="thumb" src="${esc(r.thumbnail) || ''}" alt="" loading="lazy" onerror="this.style.display='none'">
             <div class="info">${esc(r.title)}</div>
           </div>
         `).join("")}
@@ -319,39 +315,27 @@ function renderDetail(container, data) {
 // ---- DPlayer ----
 let currentPlayer = null;
 let currentVideoIdx = 0;
+let currentHls = null;
 
 function initPlayer(data) {
   if (currentPlayer) {
-    currentPlayer.destroy();
+    try { currentPlayer.destroy(); } catch(e) {}
     currentPlayer = null;
+  }
+  if (currentHls) {
+    try { currentHls.destroy(); } catch(e) {}
+    currentHls = null;
   }
 
   if (!data.videos || !data.videos.length) {
     document.getElementById("playerWrap").innerHTML =
-      `<div style="padding:3rem;text-align:center;color:var(--ink-clear);background:rgba(26,26,26,.03);border-radius:8px;">
-        未找到可播放视频
-      </div>`;
+      '<div style="padding:3rem;text-align:center;color:var(--ink-clear);background:rgba(26,26,26,.03);border-radius:8px;">未找到可播放视频</div>';
     return;
   }
 
   currentVideoIdx = 0;
   const video = data.videos[0];
-
-  currentPlayer = new DPlayer({
-    container: document.getElementById("playerWrap"),
-    autoplay: false,
-    theme: "#C41E3A",
-    loop: false,
-    lang: "zh-cn",
-    screenshot: false,
-    hotkey: true,
-    preload: "metadata",
-    volume: 0.7,
-    video: {
-      url: video.url,
-      type: video.type || "hls",
-    },
-  });
+  buildPlayer(video.url, false);
 }
 
 function switchVideo(idx) {
@@ -361,35 +345,90 @@ function switchVideo(idx) {
 
   currentVideoIdx = idx;
   const video = videos[idx];
+  buildPlayer(video.url, true);
 
-  if (currentPlayer) {
-    currentPlayer.destroy();
-    currentPlayer = null;
-  }
-
-  currentPlayer = new DPlayer({
-    container: document.getElementById("playerWrap"),
-    autoplay: true,
-    theme: "#C41E3A",
-    loop: false,
-    lang: "zh-cn",
-    screenshot: false,
-    hotkey: true,
-    preload: "metadata",
-    volume: 0.7,
-    video: {
-      url: video.url,
-      type: video.type || "hls",
-    },
-  });
-
-  // Update sidebar active
   document.querySelectorAll("[data-video-idx]").forEach(el => {
     el.style.borderColor = el.dataset.videoIdx === String(idx)
       ? "rgba(196, 30, 58, .35)" : "transparent";
   });
 
-  toast(`切换到: ${video.title || `视频 ${idx + 1}`}`);
+  toast('切换到: ' + (video.title || '视频 ' + (idx + 1)));
+}
+
+function buildPlayer(src, autoplay) {
+  // Destroy previous player
+  if (currentPlayer) {
+    try { currentPlayer.destroy(); } catch(e) {}
+    currentPlayer = null;
+  }
+  if (currentHls) {
+    try { currentHls.destroy(); } catch(e) {}
+    currentHls = null;
+  }
+
+  const wrap = document.getElementById("playerWrap");
+  // DPlayer needs a clean div
+  wrap.innerHTML = '<div id="dplayerContainer" style="width:100%;aspect-ratio:16/9;"></div>';
+
+  const isHls = /\.m3u8([?#]|$)/i.test(src);
+
+  if (isHls && typeof Hls !== 'undefined') {
+    // Use customType for proper HLS.js integration with AES decryption support
+    currentPlayer = new DPlayer({
+      container: document.getElementById("dplayerContainer"),
+      autoplay: autoplay,
+      theme: "#C41E3A",
+      loop: false,
+      lang: "zh-cn",
+      screenshot: false,
+      hotkey: true,
+      preload: "metadata",
+      volume: 0.7,
+      video: { url: src, type: "customHls" },
+      customType: {
+        customHls: function (videoEl, player) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+          });
+          currentHls = hls;
+          hls.loadSource(videoEl.src);
+          hls.attachMedia(videoEl);
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.error("HLS network error, retrying...");
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.error("HLS media error, recovering...");
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  console.error("HLS fatal error:", data);
+                  break;
+              }
+            }
+          });
+        }
+      }
+    });
+  } else {
+    // Direct MP4 or non-HLS fallback
+    currentPlayer = new DPlayer({
+      container: document.getElementById("dplayerContainer"),
+      autoplay: autoplay,
+      theme: "#C41E3A",
+      loop: false,
+      lang: "zh-cn",
+      screenshot: false,
+      hotkey: true,
+      preload: "metadata",
+      volume: 0.7,
+      video: { url: src, type: "auto" },
+    });
+  }
 }
 
 // ---- Download ----
@@ -536,9 +575,7 @@ function createCard(item) {
   div.className = "masonry-card";
   div.addEventListener("click", () => navigate(item.url));
 
-  const imgSrc = item.thumbnail
-    ? `/api/site/image-proxy?url=${encodeURIComponent(item.thumbnail)}`
-    : "";
+  const imgSrc = esc(item.thumbnail) || "";
 
   const catTags = (item.categories || []).slice(0, 2).map(c =>
     `<span class="cat-tag">${esc(c)}</span>`

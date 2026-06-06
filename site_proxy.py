@@ -458,17 +458,20 @@ def _extract_article_body(html: str) -> str:
     )
 
     # Fix all lazy-load images: replace tbxw/zw.png placeholder with
-    # the actual image URL stored in data-xkrkllgl, then rewrite to use
-    # our local image proxy so the CDN doesn't block hotlinking.
-    from urllib.parse import quote as url_quote
+    # the actual image URL stored in data-xkrkllgl. CDN allows direct access
+    # so we use the real URL directly (faster, no proxy overhead).
 
     def _fix_img(m):
         real = m.group(1) or ""
         orig = m.group(0)
         if real:
-            proxy_src = f"/api/site/image-proxy?url={url_quote(real, safe='')}"
-            result = re.sub(r'\s+src="[^"]*"', f' src="{proxy_src}"', orig)
+            result = re.sub(r'\s+src="[^"]*"', f' src="{real}"', orig)
             result = re.sub(r'\s+data-xkrkllgl="[^"]*"', '', result)
+            # Add loading=lazy and referrerpolicy for browser compatibility
+            if 'loading=' not in result:
+                result = result.replace('<img', '<img loading="lazy"')
+            if 'referrerpolicy=' not in result:
+                result = result.replace('<img', '<img referrerpolicy="no-referrer"')
             return result
         return orig
 
@@ -654,12 +657,21 @@ async def get_categories() -> list[dict]:
     return CATEGORIES
 
 
-async def get_homepage_feed(proxy_url: str = "") -> ListPage:
-    """Get homepage article list via RSS feed for speed."""
-    url = f"{BASE_URL}/feed/"
-    html = await _fetch(url, proxy_url)
-    items = _parse_feed_items(html)
-    return ListPage(items=items, page=1, has_next=True, next_page=2)
+async def get_homepage_feed(proxy_url: str = "", page: int = 1) -> ListPage:
+    """Get homepage article list — RSS feed for page 1, HTML scrape for pagination."""
+    if page == 1:
+        # RSS is fastest for first page
+        url = f"{BASE_URL}/feed/"
+        html = await _fetch(url, proxy_url)
+        items = _parse_feed_items(html)
+        return ListPage(items=items, page=1, has_next=True, next_page=2)
+    else:
+        # Use homepage pagination for subsequent pages
+        url = f"{BASE_URL}/page/{page}/"
+        html = await _fetch(url, proxy_url)
+        items = _parse_article_list(html)
+        has_next, next_page = _parse_next_page(html, page)
+        return ListPage(items=items, page=page, has_next=has_next, next_page=next_page)
 
 
 async def get_category_page(slug: str, page: int = 1, proxy_url: str = "") -> ListPage:

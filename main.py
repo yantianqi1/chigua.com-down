@@ -149,9 +149,9 @@ async def site_categories():
 
 @app.get("/api/site/feed")
 async def site_feed(page: int = Query(1)):
-    """Homepage article feed (RSS-based for speed)."""
+    """Homepage article feed (RSS page 1, HTML scrape for pagination)."""
     proxy_url = settings_store.load().proxy_url
-    result = await site_proxy.get_homepage_feed(proxy_url)
+    result = await site_proxy.get_homepage_feed(proxy_url, page)
     return {
         "items": [_article_item_to_dict(i) for i in result.items],
         "page": result.page,
@@ -204,13 +204,12 @@ async def site_search(q: str = Query("")):
 
 @app.get("/api/site/image-proxy")
 async def site_image_proxy(url: str = Query("")):
-    """Proxy an image to avoid CORS/referrer issues."""
+    """Proxy an image to avoid CORS/referrer issues (fallback for blocked CDNs)."""
     if not url:
         raise HTTPException(400, "url is required")
-    proxy_url = settings_store.load().proxy_url
     try:
-        content = await site_proxy.get_image_proxy(url, proxy_url)
-        # Guess content type
+        # Fetch directly, don't use the configured proxy (which may not exist)
+        content = await site_proxy.get_image_proxy(url, "")
         ext = url.split(".")[-1].split("?")[0].lower()
         ct_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
                    "webp": "image/webp", "gif": "image/gif"}

@@ -3,3 +3,8 @@ __pycache__/
 *.pyo
 .pytest_cache/
 docs/
+*.png
+*.jpg
+*.jpeg
+*.mp4
+downloads/
