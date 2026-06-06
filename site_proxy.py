@@ -458,20 +458,19 @@ def _extract_article_body(html: str) -> str:
     )
 
     # Fix all lazy-load images: replace tbxw/zw.png placeholder with
-    # the actual image URL stored in data-xkrkllgl. CDN allows direct access
-    # so we use the real URL directly (faster, no proxy overhead).
+    # the actual image URL, routed through our image-proxy to ensure
+    # correct MIME type (CDN returns binary/octet-stream, browsers reject).
+    from urllib.parse import quote as url_quote
 
     def _fix_img(m):
         real = m.group(1) or ""
         orig = m.group(0)
         if real:
-            result = re.sub(r'\s+src="[^"]*"', f' src="{real}"', orig)
+            proxy_src = f"/api/site/image-proxy?url={url_quote(real, safe='')}"
+            result = re.sub(r'\s+src="[^"]*"', f' src="{proxy_src}"', orig)
             result = re.sub(r'\s+data-xkrkllgl="[^"]*"', '', result)
-            # Add loading=lazy and referrerpolicy for browser compatibility
             if 'loading=' not in result:
                 result = result.replace('<img', '<img loading="lazy"')
-            if 'referrerpolicy=' not in result:
-                result = result.replace('<img', '<img referrerpolicy="no-referrer"')
             return result
         return orig
 
@@ -773,8 +772,21 @@ def _parse_feed_items(xml_text: str) -> list[ArticleItem]:
     return items
 
 
-async def get_image_proxy(image_url: str, proxy_url: str = "") -> bytes:
-    """Proxy a single image, returning its bytes (for CORS avoidance)."""
+def _detect_mime(data: bytes) -> str:
+    """Detect image MIME type from magic bytes."""
+    if data[:3] == b'\xff\xd8\xff':
+        return 'image/jpeg'
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'image/png'
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'image/webp'
+    if data[:4] in (b'GIF8'):
+        return 'image/gif'
+    return 'image/jpeg'  # fallback
+
+
+async def get_image_proxy(image_url: str, proxy_url: str = "") -> tuple[bytes, str]:
+    """Proxy a single image, returning (bytes, mime_type)."""
     proxy = proxy_url.strip() or None
     async with httpx.AsyncClient(
         timeout=30,
@@ -786,4 +798,6 @@ async def get_image_proxy(image_url: str, proxy_url: str = "") -> bytes:
             headers={"User-Agent": USER_AGENT, "Referer": BASE_URL},
         )
         resp.raise_for_status()
-        return resp.content
+        content = resp.content
+        mime = _detect_mime(content)
+        return content, mime

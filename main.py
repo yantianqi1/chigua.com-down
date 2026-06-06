@@ -204,17 +204,13 @@ async def site_search(q: str = Query("")):
 
 @app.get("/api/site/image-proxy")
 async def site_image_proxy(url: str = Query("")):
-    """Proxy an image to avoid CORS/referrer issues (fallback for blocked CDNs)."""
+    """Proxy an image — fixes MIME type so browsers render correctly."""
     if not url:
         raise HTTPException(400, "url is required")
     try:
-        # Fetch directly, don't use the configured proxy (which may not exist)
-        content = await site_proxy.get_image_proxy(url, "")
-        ext = url.split(".")[-1].split("?")[0].lower()
-        ct_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-                   "webp": "image/webp", "gif": "image/gif"}
-        content_type = ct_map.get(ext, "image/jpeg")
-        return Response(content=content, media_type=content_type)
+        content, mime = await site_proxy.get_image_proxy(url, "")
+        return Response(content=content, media_type=mime,
+                        headers={"Cache-Control": "public, max-age=86400"})
     except Exception as e:
         raise HTTPException(500, f"Image proxy failed: {e}")
 

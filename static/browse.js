@@ -255,7 +255,7 @@ function renderDetail(container, data) {
         <h3>🔥 相关推荐</h3>
         ${data.related.slice(0, 5).map(r => `
           <div class="video-list-item" onclick="navigate('${r.url}')">
-            <img class="thumb" src="${esc(r.thumbnail) || ''}" alt="" loading="lazy" onerror="this.style.display='none'">
+            <img class="thumb" src="${r.thumbnail ? `/api/site/image-proxy?url=${encodeURIComponent(r.thumbnail)}` : ''}" alt="" loading="lazy" onerror="this.style.display='none'">
             <div class="info">${esc(r.title)}</div>
           </div>
         `).join("")}
@@ -575,7 +575,9 @@ function createCard(item) {
   div.className = "masonry-card";
   div.addEventListener("click", () => navigate(item.url));
 
-  const imgSrc = esc(item.thumbnail) || "";
+  const imgSrc = item.thumbnail
+    ? `/api/site/image-proxy?url=${encodeURIComponent(item.thumbnail)}`
+    : "";
 
   const catTags = (item.categories || []).slice(0, 2).map(c =>
     `<span class="cat-tag">${esc(c)}</span>`

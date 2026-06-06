@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Liu+Jian+Mao+Cao&family=Ma+Shan+Zheng&family=Zhi+Mang+Xing&family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=Noto+Serif+SC:wght@300;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
+<link rel="stylesheet" href="/static/DPlayer.min.css">
 <link rel="stylesheet" href="/static/browse.css">
 </head>
 <body>
@@ -80,9 +80,9 @@
 <!-- ====== Toast ====== -->
 <div class="toast" id="toast"></div>
 
-<!-- DPlayer -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+<!-- HLS + DPlayer (self-hosted, avoids CDN blocking in China) -->
+<script src="/static/hls.min.js"></script>
+<script src="/static/DPlayer.min.js"></script>
 <script src="/static/browse.js"></script>
 </body>
 </html>
