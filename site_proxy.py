@@ -335,18 +335,18 @@ def _sanitize_html(html: str) -> str:
         '', html, flags=re.DOTALL
     )
 
-    # Remove images from ad domains
+    # Remove images from ad domains (keep pic.*.cn for content images, GIFs filtered later)
     for domain in AD_DOMAINS:
-        if 'pic.aluxvl.cn' == domain:
-            continue  # Keep pic.aluxvl.cn for content images, only filter later
+        if 'pic.aluxvl.cn' in domain or 'pic.apgoap' in domain:
+            continue
         html = re.sub(
             r'<img[^>]*' + re.escape(domain) + r'[^>]*>',
             '', html, flags=re.IGNORECASE
         )
 
-    # Remove ad GIF images (banner ads from pic.aluxvl.cn with .gif extension)
+    # Remove ad GIF images (banner ads from pic CDN with .gif extension)
     html = re.sub(
-        r'<img[^>]*pic\.aluxvl\.cn[^>]*\.gif[^>]*>',
+        r'<img[^>]*pic\.(?:aluxvl|apgoap)\.cn[^>]*\.gif[^>]*>',
         '', html, flags=re.IGNORECASE
     )
 
@@ -394,28 +394,103 @@ def _sanitize_html(html: str) -> str:
 
 
 def _extract_article_body(html: str) -> str:
-    """Extract the main article content from the page HTML."""
-    # Try Typecho post content area
-    patterns = [
-        r'<div[^>]*class="[^"]*post-content[^"]*"[^>]*>(.*?)</div>\s*(?:<div[^>]*class="[^"]*post-tags|$)',
-        r'<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>(.*?)</div>\s*(?:<div[^>]*class="[^"]*post-tags|$)',
-        r'<article[^>]*>(.*?)</article>',
-        r'<div[^>]*class="[^"]*post-body[^"]*"[^>]*>(.*?)</div>\s*(?:<div[^>]*class="[^"]*post-tags|$)',
+    """Extract the main article content from the page HTML.
+
+    The Mirages theme embeds content directly without a dedicated wrapper div.
+    We find the <article> tag, skip past leading ads/blockquotes, and stop
+    before keyword-tag / external-download sections.
+    """
+    # Scope to <article> if present
+    article_m = re.search(r'<article[^>]*>(.*?)</article>', html, re.DOTALL)
+    search_area = article_m.group(1) if article_m else html
+
+    # Real content starts after the last </blockquote> (site-address promo)
+    bq_ends = [m.end() for m in re.finditer(r'</blockquote>', search_area)]
+    if bq_ends:
+        start = bq_ends[-1]
+    else:
+        start = 0
+
+    # End before keyword tags or external download divs
+    end_markers = [
+        r'关键词[：:]',
+        r'<div[^>]*class="[^"]*btn-download[^"]*"',
+        r'<div[^>]*style="[^"]*text-align:center[^"]*margin-block[^"]*"',
     ]
-
-    for pattern in patterns:
-        m = re.search(pattern, html, re.DOTALL)
+    end = len(search_area)
+    for marker in end_markers:
+        m = re.search(marker, search_area[start:])
         if m:
-            content = m.group(1)
-            if len(content.strip()) > 100:
-                return content
+            end = start + m.start()
+            break
 
-    # Fallback: extract from content:encoded in head or old body
-    m = re.search(r'<div[^>]*id="post-content"[^>]*>(.*?)</div>\s*<', html, re.DOTALL)
-    if m:
-        return m.group(1)
+    content = search_area[start:end]
 
-    return ""
+    # --- strip ad / promo cruft from the extracted content ---
+
+    # Leftover blockquotes (site address promos)
+    content = re.sub(r'<blockquote>.*?</blockquote>', '', content, flags=re.DOTALL)
+
+    # "text top apps" button row (快手视频 / 成人抖阴 etc.)
+    content = re.sub(
+        r'<div[^>]*class="[^"]*text_top_apps[^"]*"[^>]*>.*?</div>\s*</div>',
+        '', content, flags=re.DOTALL,
+    )
+    content = re.sub(
+        r'<a[^>]*class="[^"]*btn-app[^"]*"[^>]*>.*?</a>',
+        '', content, flags=re.DOTALL,
+    )
+
+    # Telegram invite / channel links
+    content = re.sub(
+        r'<a[^>]*href="https?://t\.me/[^"]*"[^>]*>.*?</a>',
+        '', content, flags=re.DOTALL,
+    )
+
+    # Cloudflare email-protection spans
+    content = re.sub(
+        r'<span[^>]*class="[^"]*__cf_email__[^"]*"[^>]*>.*?</span>',
+        '', content, flags=re.DOTALL,
+    )
+    content = re.sub(
+        r'<a[^>]*href="/cdn-cgi/l/email-protection[^"]*"[^>]*>.*?</a>',
+        '', content, flags=re.DOTALL,
+    )
+
+    # Fix all lazy-load images: replace tbxw/zw.png placeholder with
+    # the actual image URL stored in data-xkrkllgl, then rewrite to use
+    # our local image proxy so the CDN doesn't block hotlinking.
+    from urllib.parse import quote as url_quote
+
+    def _fix_img(m):
+        real = m.group(1) or ""
+        orig = m.group(0)
+        if real:
+            proxy_src = f"/api/site/image-proxy?url={url_quote(real, safe='')}"
+            result = re.sub(r'\s+src="[^"]*"', f' src="{proxy_src}"', orig)
+            result = re.sub(r'\s+data-xkrkllgl="[^"]*"', '', result)
+            return result
+        return orig
+
+    content = re.sub(
+        r'<img[^>]*data-xkrkllgl="([^"]+)"[^>]*>',
+        _fix_img, content,
+    )
+
+    # Remove leftover zw.png images that weren't caught (safety net)
+    content = re.sub(r'<img[^>]*zw\.png[^>]*>', '', content)
+
+    # Remove banner.png ad images
+    content = re.sub(r'<img[^>]*banner\.png[^>]*>', '', content)
+
+    if len(content.strip()) > 50:
+        return content.strip()
+
+    # Fallback: take a generous slice of search_area but strip obvious ads
+    fallback = search_area
+    fallback = re.sub(r'<blockquote>.*?</blockquote>', '', fallback, flags=re.DOTALL)
+    fallback = re.sub(r'<div[^>]*class="[^"]*btn-download[^"]*".*?</div>', '', fallback, flags=re.DOTALL)
+    return fallback.strip()
 
 
 def _strip_player_ads(config: dict) -> dict:
@@ -517,13 +592,13 @@ def _parse_article_page(html: str) -> ArticleDetail:
             cats.append(cm.group(2).strip())
         cats = list(dict.fromkeys(cats))
 
-    # Thumbnail
+    # Thumbnail — pick the first content image (from either CDN domain)
     thumbnail = ""
-    im = re.search(r'data-xkrkllgl="(https://pic\.aluxvl\.cn[^"]+\.(?:jpe?g|png|webp))"', html)
+    im = re.search(r'data-xkrkllgl="(https://pic\.(?:aluxvl|apgoap)\.cn[^"]+\.(?:jpe?g|png|webp))"', html)
     if im:
         thumbnail = im.group(1)
     if not thumbnail:
-        im2 = re.search(r'<img[^>]*src="(https://pic\.aluxvl\.cn[^"]+)"', html)
+        im2 = re.search(r'<img[^>]*src="(https://pic\.(?:aluxvl|apgoap)\.cn[^"]+)"', html)
         if im2:
             thumbnail = im2.group(1)
 
@@ -549,20 +624,9 @@ def _parse_article_page(html: str) -> ArticleDetail:
                     pass
                 break
 
-    # Content body
+    # Content body — images already fixed during extraction
     body_html = _extract_article_body(html)
     body_html = _sanitize_html(body_html)
-
-    # Fix image URLs: replace tbxw placeholder with real URLs
-    def _fix_img(m):
-        real = m.group(1) or ""
-        if real:
-            return f'<img src="{real}" loading="lazy" alt="">'
-        return m.group(0)
-    body_html = re.sub(
-        r'<img[^>]*data-xkrkllgl="([^"]+)"[^>]*>',
-        _fix_img, body_html
-    )
 
     # Related articles
     related = _parse_article_list(html)
